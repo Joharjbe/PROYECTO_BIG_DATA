@@ -1,0 +1,118 @@
+
+
+services:
+  # ───── HDFS Namenode ─────
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop2.7.4-java8
+    container_name: namenode
+    environment:
+      - CLUSTER_NAME=dev
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+    ports:
+      - "50070:50070"   
+      - "9870:50070"    
+      - "9000:9000"    
+
+    volumes:
+      - namenode:/hadoop/dfs/name
+      - ./data:/data
+    networks:
+      - hadoop
+
+  # ───── HDFS Datanode ─────
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop2.7.4-java8
+    container_name: datanode
+    depends_on:
+      - namenode
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+      - HDFS_CONF_dfs_replication=1
+      - SERVICE_PRECONDITION=namenode:50070
+    ports:
+      - "9864:9864"
+      - "50075:50075"   
+
+    volumes:
+      - datanode:/hadoop/dfs/data
+    networks:
+      - hadoop
+
+  # ───── Spark master ─────
+  spark:
+    image: bitnami/spark:3.4
+    container_name: spark
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark
+      - SPARK_EXTRA_CONF=spark.hadoop.fs.defaultFS=hdfs://namenode:9000
+    ports:
+      - "7077:7077"
+      - "4040:4040"
+    volumes:
+      - ./data:/data
+      - ./models:/models
+      - ./spark_jobs:/spark_jobs
+    depends_on:
+      - namenode
+    networks:
+      - hadoop
+
+  # ───── Spark worker ─────
+  spark-worker:
+    image: bitnami/spark:3.4
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark:7077
+      - SPARK_WORKER_MEMORY=4G
+      - SPARK_WORKER_CORES=2
+      - SPARK_EXTRA_CONF=spark.hadoop.fs.defaultFS=hdfs://namenode:9000
+    volumes:
+      - ./data:/data
+      - ./models:/models
+    depends_on:
+      - spark
+    networks:
+      - hadoop
+
+  # ───── JupyterLab PySpark ─────
+  jupyter:
+    image: jupyter/pyspark-notebook:spark-3.4.1
+    container_name: jupyter
+    environment:
+      - JUPYTER_TOKEN=1234
+      - SPARK_MASTER=spark://spark:7077
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./data:/home/jovyan/data
+      - ./models:/home/jovyan/models
+      - ./spark_jobs:/home/jovyan/spark_jobs
+    depends_on:
+      - spark
+    networks:
+      - hadoop
+
+  # ───── Superset ─────
+  superset:
+    image: apache/superset:3.0.1
+    container_name: superset
+    environment:
+      - SUPERSET_SECRET_KEY=xd
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./superset:/app/superset_home
+    depends_on:
+      - spark
+    networks:
+      - hadoop
+
+volumes:
+  namenode:
+  datanode:
+
+networks:
+  hadoop:
+    driver: bridge
