@@ -363,7 +363,7 @@ El resultado del modelo se almacena en **MongoDB**, lo que denominamos **capa *g
 
 
 
-![Diagrama de arquitectura](docs/arquitectura.jpg)
+![Diagrama de arquitectura](arquitectura.jpg)
 
 
 ### ▪ Resultados obtenidos y análisis de estos
